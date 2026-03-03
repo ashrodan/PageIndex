@@ -1,0 +1,17 @@
+[
+  {
+    "query": "What was the total revenue for Q1 FY2025?",
+    "expected_nodes": [],
+    "notes": "Add expected node_ids from the index tree. Leave empty to skip precision/recall scoring."
+  },
+  {
+    "query": "What is the guidance for fiscal year 2025?",
+    "expected_nodes": [],
+    "notes": ""
+  },
+  {
+    "query": "How did the Sports segment perform?",
+    "expected_nodes": [],
+    "notes": ""
+  }
+]

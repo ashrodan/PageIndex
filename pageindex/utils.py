@@ -12,23 +12,38 @@ import pymupdf
 from io import BytesIO
 from dotenv import load_dotenv
 load_dotenv()
-import logging
 import yaml
 from pathlib import Path
 from types import SimpleNamespace as config
 
 CHATGPT_API_KEY = os.getenv("CHATGPT_API_KEY")
 
+import random
+
+_sync_client = None
+_async_client = None
+
+def _get_sync_client(api_key):
+    global _sync_client
+    if _sync_client is None:
+        _sync_client = openai.OpenAI(api_key=api_key)
+    return _sync_client
+
+def _get_async_client(api_key):
+    global _async_client
+    if _async_client is None:
+        _async_client = openai.AsyncOpenAI(api_key=api_key)
+    return _async_client
+
 def count_tokens(text, model=None):
     if not text:
         return 0
-    enc = tiktoken.encoding_for_model(model)
-    tokens = enc.encode(text)
-    return len(tokens)
+    enc = tiktoken.encoding_for_model(model or "gpt-4o")
+    return len(enc.encode(text))
 
 def ChatGPT_API_with_finish_reason(model, prompt, api_key=CHATGPT_API_KEY, chat_history=None):
     max_retries = 10
-    client = openai.OpenAI(api_key=api_key)
+    client = _get_sync_client(api_key)
     for i in range(max_retries):
         try:
             if chat_history:
@@ -36,7 +51,7 @@ def ChatGPT_API_with_finish_reason(model, prompt, api_key=CHATGPT_API_KEY, chat_
                 messages.append({"role": "user", "content": prompt})
             else:
                 messages = [{"role": "user", "content": prompt}]
-            
+
             response = client.chat.completions.create(
                 model=model,
                 messages=messages,
@@ -51,7 +66,8 @@ def ChatGPT_API_with_finish_reason(model, prompt, api_key=CHATGPT_API_KEY, chat_
             print('************* Retrying *************')
             logging.error(f"Error: {e}")
             if i < max_retries - 1:
-                time.sleep(1)  # Wait for 1秒 before retrying
+                wait = min(2 ** i + random.uniform(0, 1), 60)
+                time.sleep(wait)
             else:
                 logging.error('Max retries reached for prompt: ' + prompt)
                 return "Error"
@@ -60,7 +76,7 @@ def ChatGPT_API_with_finish_reason(model, prompt, api_key=CHATGPT_API_KEY, chat_
 
 def ChatGPT_API(model, prompt, api_key=CHATGPT_API_KEY, chat_history=None):
     max_retries = 10
-    client = openai.OpenAI(api_key=api_key)
+    client = _get_sync_client(api_key)
     for i in range(max_retries):
         try:
             if chat_history:
@@ -68,19 +84,20 @@ def ChatGPT_API(model, prompt, api_key=CHATGPT_API_KEY, chat_history=None):
                 messages.append({"role": "user", "content": prompt})
             else:
                 messages = [{"role": "user", "content": prompt}]
-            
+
             response = client.chat.completions.create(
                 model=model,
                 messages=messages,
                 temperature=0,
             )
-   
+
             return response.choices[0].message.content
         except Exception as e:
             print('************* Retrying *************')
             logging.error(f"Error: {e}")
             if i < max_retries - 1:
-                time.sleep(1)  # Wait for 1秒 before retrying
+                wait = min(2 ** i + random.uniform(0, 1), 60)
+                time.sleep(wait)
             else:
                 logging.error('Max retries reached for prompt: ' + prompt)
                 return "Error"
@@ -89,20 +106,21 @@ def ChatGPT_API(model, prompt, api_key=CHATGPT_API_KEY, chat_history=None):
 async def ChatGPT_API_async(model, prompt, api_key=CHATGPT_API_KEY):
     max_retries = 10
     messages = [{"role": "user", "content": prompt}]
+    client = _get_async_client(api_key)
     for i in range(max_retries):
         try:
-            async with openai.AsyncOpenAI(api_key=api_key) as client:
-                response = await client.chat.completions.create(
-                    model=model,
-                    messages=messages,
-                    temperature=0,
-                )
-                return response.choices[0].message.content
+            response = await client.chat.completions.create(
+                model=model,
+                messages=messages,
+                temperature=0,
+            )
+            return response.choices[0].message.content
         except Exception as e:
             print('************* Retrying *************')
             logging.error(f"Error: {e}")
             if i < max_retries - 1:
-                await asyncio.sleep(1)  # Wait for 1s before retrying
+                wait = min(2 ** i + random.uniform(0, 1), 60)
+                await asyncio.sleep(wait)
             else:
                 logging.error('Max retries reached for prompt: ' + prompt)
                 return "Error"  
@@ -317,16 +335,25 @@ class JsonLogger:
         # Initialize empty list to store all messages
         self.log_data = []
 
+    WRITE_THRESHOLD = 20
+
     def log(self, level, message, **kwargs):
-        if isinstance(message, dict):
-            self.log_data.append(message)
-        else:
-            self.log_data.append({'message': message})
-        # Add new message to the log data
-        
-        # Write entire log data to file
+        self.log_data.append(message if isinstance(message, dict) else {'message': message})
+        if len(self.log_data) % self.WRITE_THRESHOLD == 0:
+            self._flush()
+
+    def _flush(self):
         with open(self._filepath(), "w") as f:
             json.dump(self.log_data, f, indent=2)
+
+    def close(self):
+        self._flush()
+
+    def __del__(self):
+        try:
+            self._flush()
+        except Exception:
+            pass
 
     def info(self, message, **kwargs):
         self.log("INFO", message, **kwargs)

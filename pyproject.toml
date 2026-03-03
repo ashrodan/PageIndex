@@ -1,0 +1,33 @@
+[project]
+name = "pageindex"
+version = "0.1.0"
+description = "Vectorless, Reasoning-based RAG — hierarchical tree index with LLM-based retrieval"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+dependencies = [
+    "openai>=1.101.0",
+    "pymupdf>=1.26.4",
+    "PyPDF2>=3.0.1",
+    "python-dotenv>=1.1.0",
+    "tiktoken>=0.11.0",
+    "pyyaml>=6.0.2",
+    "rich>=13.0",
+]
+
+[project.scripts]
+pageindex = "pageindex.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=8.0",
+    "ipykernel>=6.0",
+    "jupyter>=1.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["pageindex"]

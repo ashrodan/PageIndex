@@ -1,12 +1,13 @@
 """
-Integration tests for pageindex_core.py using real PDFs from tests/pdfs/.
+Integration tests for pageindex_core.py using real PDFs and synthetic markdown.
 
 All tests that touch the LLM pipeline mock only the OpenAI call surface
 (core.ChatGPT_API, core._call_llm, core.ChatGPT_API_async) — everything
-else (PDF reading, tokenisation, chunking, tree building, post-processing)
-runs against real code and real PDF bytes.
+else (PDF reading, tokenisation, chunking, tree building, post-processing,
+markdown parsing) runs against real code.
 
-PDF used: tests/pdfs/2023-annual-report-truncated.pdf (50 pages, ~3.4 MB)
+PDF used:      tests/pdfs/2023-annual-report-truncated.pdf (50 pages, ~3.4 MB)
+Markdown used: synthetic fixture written to tmp_path per test
 """
 
 import asyncio
@@ -287,4 +288,212 @@ class TestPageIndexMainSmoke:
         result = self._run()
         # Must not raise
         serialised = json.dumps(result)
+        assert len(serialised) > 0
+
+
+# ===========================================================================
+# 5. md_to_tree — markdown indexing pipeline
+# ===========================================================================
+
+# Synthetic markdown used across all md_to_tree tests.
+# Structure:
+#   # Document Title              ← level 1 root
+#   ## Chapter 1                  ← level 2
+#   ### Section 1.1               ← level 3
+#   ### Section 1.2               ← level 3
+#   ## Chapter 2                  ← level 2  (has code block with fake header)
+#   ## Chapter 3                  ← level 2  (short, good for thinning tests)
+_SAMPLE_MD = """\
+# Document Title
+
+Introduction paragraph at the top level.
+
+## Chapter 1
+
+Chapter 1 has substantial body text to ensure it exceeds small token thresholds.
+
+### Section 1.1
+
+Section 1.1 covers the first sub-topic in detail.
+
+### Section 1.2
+
+Section 1.2 covers the second sub-topic in detail.
+
+## Chapter 2
+
+```python
+# This header inside a code block must NOT become a node
+def example():
+    pass
+```
+
+Chapter 2 continues after the code block.
+
+## Chapter 3
+
+Short chapter.
+"""
+
+
+class TestMdToTree:
+    """
+    Tests for the full md_to_tree async pipeline.
+
+    Real: file I/O, markdown parsing, token counting, tree building, formatting.
+    Mocked: ChatGPT_API_async (summaries) and ChatGPT_API (doc description).
+    """
+
+    @pytest.fixture()
+    def md_file(self, tmp_path):
+        """Write the sample markdown to a temp file and return its path."""
+        p = tmp_path / "sample_doc.md"
+        p.write_text(_SAMPLE_MD, encoding="utf-8")
+        return str(p)
+
+    def _run(self, md_file, **kwargs):
+        return asyncio.run(core.md_to_tree(md_file, **kwargs))
+
+    # --- output shape ---
+
+    def test_returns_doc_name_and_structure(self, md_file):
+        result = self._run(md_file)
+        assert "doc_name" in result
+        assert "structure" in result
+
+    def test_doc_name_is_filename_stem(self, md_file):
+        result = self._run(md_file)
+        assert result["doc_name"] == "sample_doc"
+
+    def test_structure_is_nonempty_list(self, md_file):
+        result = self._run(md_file)
+        assert isinstance(result["structure"], list)
+        assert len(result["structure"]) > 0
+
+    # --- node content ---
+
+    def test_code_block_header_not_extracted(self, md_file):
+        result = self._run(md_file)
+        all_titles = [n["title"] for n in core.structure_to_list(result["structure"])]
+        assert "This header inside a code block must NOT become a node" not in all_titles
+
+    def test_real_headers_all_present(self, md_file):
+        result = self._run(md_file)
+        all_titles = {n["title"] for n in core.structure_to_list(result["structure"])}
+        for expected in ["Document Title", "Chapter 1", "Section 1.1", "Section 1.2",
+                         "Chapter 2", "Chapter 3"]:
+            assert expected in all_titles, f"Missing: {expected}"
+
+    def test_sections_nested_under_chapters(self, md_file):
+        result = self._run(md_file)
+        # Chapter 1 (level 2) is a child of Document Title (level 1),
+        # so search the full flattened tree, not just root level.
+        all_nodes = core.structure_to_list(result["structure"])
+        ch1 = next(n for n in all_nodes if n["title"] == "Chapter 1")
+        child_titles = {n["title"] for n in ch1.get("nodes", [])}
+        assert "Section 1.1" in child_titles
+        assert "Section 1.2" in child_titles
+
+    # --- node_id ---
+
+    def test_node_ids_present_by_default(self, md_file):
+        result = self._run(md_file)
+        for node in core.structure_to_list(result["structure"]):
+            assert "node_id" in node
+
+    def test_node_ids_unique_and_sequential(self, md_file):
+        result = self._run(md_file)
+        ids = [n["node_id"] for n in core.structure_to_list(result["structure"])]
+        assert ids == sorted(ids)
+        assert len(ids) == len(set(ids))
+
+    def test_node_id_zero_based_when_write_node_id_runs(self, md_file):
+        # if_add_node_id='yes' calls write_node_id which resets to 0-based counting
+        result = self._run(md_file, if_add_node_id="yes")
+        assert result["structure"][0]["node_id"] == "0000"
+
+    def test_node_id_one_based_when_write_node_id_skipped(self, md_file):
+        # build_tree_from_nodes always adds node_id with a 1-based counter;
+        # if_add_node_id='no' skips the write_node_id re-run so the 1-based IDs remain
+        result = self._run(md_file, if_add_node_id="no")
+        assert result["structure"][0]["node_id"] == "0001"
+
+    # --- text field ---
+
+    def test_no_text_field_by_default(self, md_file):
+        result = self._run(md_file)
+        for node in core.structure_to_list(result["structure"]):
+            assert "text" not in node
+
+    def test_text_field_present_when_enabled(self, md_file):
+        result = self._run(md_file, if_add_node_text="yes")
+        for node in core.structure_to_list(result["structure"]):
+            assert "text" in node
+            assert isinstance(node["text"], str)
+
+    def test_text_contains_header(self, md_file):
+        result = self._run(md_file, if_add_node_text="yes")
+        ch1 = next(n for n in core.structure_to_list(result["structure"])
+                   if n["title"] == "Chapter 1")
+        assert "Chapter 1" in ch1["text"]
+
+    # --- thinning ---
+
+    def test_thinning_with_high_threshold_merges_small_nodes(self, md_file):
+        # With a very high threshold all small leaf nodes should merge up
+        result_default = self._run(md_file)
+        result_thinned = self._run(md_file, if_thinning=True, min_token_threshold=50_000)
+        default_count = len(core.structure_to_list(result_default["structure"]))
+        thinned_count = len(core.structure_to_list(result_thinned["structure"]))
+        assert thinned_count <= default_count
+
+    def test_thinning_with_zero_threshold_leaves_tree_unchanged(self, md_file):
+        result_default = self._run(md_file)
+        result_thinned = self._run(md_file, if_thinning=True, min_token_threshold=0)
+        assert (len(core.structure_to_list(result_default["structure"])) ==
+                len(core.structure_to_list(result_thinned["structure"])))
+
+    # --- summaries (LLM mocked) ---
+
+    def test_summary_fields_added_when_enabled(self, md_file, monkeypatch):
+        async def fake_async(model=None, prompt=None, api_key=None):
+            return "A short summary."
+        monkeypatch.setattr(core, "ChatGPT_API_async", fake_async)
+
+        result = self._run(md_file, if_add_node_summary="yes", summary_token_threshold=1)
+        nodes = core.structure_to_list(result["structure"])
+        # Every node should have either summary (leaf) or prefix_summary (parent)
+        for node in nodes:
+            has_summary = "summary" in node or "prefix_summary" in node
+            assert has_summary, f"Node '{node.get('title')}' missing summary field"
+
+    def test_no_text_in_summary_mode_when_disabled(self, md_file, monkeypatch):
+        async def fake_async(model=None, prompt=None, api_key=None):
+            return "Summary."
+        monkeypatch.setattr(core, "ChatGPT_API_async", fake_async)
+
+        result = self._run(md_file, if_add_node_summary="yes",
+                           summary_token_threshold=1, if_add_node_text="no")
+        for node in core.structure_to_list(result["structure"]):
+            assert "text" not in node
+
+    # --- doc description (LLM mocked) ---
+
+    def test_doc_description_in_result_when_enabled(self, md_file, monkeypatch):
+        async def fake_async(model=None, prompt=None, api_key=None):
+            return "A short summary."
+        monkeypatch.setattr(core, "ChatGPT_API_async", fake_async)
+        monkeypatch.setattr(core, "ChatGPT_API",
+                            lambda model, prompt, **kw: "A document about chapters.")
+
+        result = self._run(md_file, if_add_node_summary="yes",
+                           summary_token_threshold=1, if_add_doc_description="yes")
+        assert "doc_description" in result
+        assert isinstance(result["doc_description"], str)
+
+    # --- JSON serialisable ---
+
+    def test_result_is_json_serialisable(self, md_file):
+        result = self._run(md_file)
+        serialised = json.dumps(result, ensure_ascii=False)
         assert len(serialised) > 0

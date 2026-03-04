@@ -1,6 +1,28 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## Beta - 2026-03-04
+
+### Added
+
+- **`pageindex_core.py`** — Self-contained, single-file distillation of the entire PageIndex package (`utils.py` + `page_index.py` + `page_index_md.py`) into one portable `uv run`-able script with inline `/// script` dependency declarations. Drop-in replacement for the `pageindex` CLI that requires no install step.
+
+- **`run.py`** — Unified pipeline entry point. Accepts a PDF, Markdown file, existing `*_structure.json`, or a folder (interactive picker). Indexes the document if needed and then opens the eval REPL. Supports `--index-only` to skip the REPL stage. Uses inline `/// script` deps.
+
+- **`eval_repl.py`** (standalone, uplift) — Reworked as a minimal standalone script with only `openai`, `python-dotenv`, and `rich` as dependencies. Works with pre-built index JSON only; for full index-then-eval use `run.py`.
+
+- **`.claude/skills/pageindex-eval/`** — New Claude Code skill wrapping the eval REPL via `vectorless_rag_eval.py`. Triggers when a user wants to interactively query a `*_structure.json` index or run batch benchmarks.
+
+- **`.claude/skills/pageindex-search/`** — New Claude Code skill for tree-first vectorless search (`pageindex_search.py`). Default pipeline is API-key-free for existing JSON (`retrieval_mode=tree`, `answer_mode=extractive`). Optional stages: `--llm-rerank`, `--answer-mode llm`.
+
+- **`Makefile`** — New makefile with targets for packaging and uploading skills to OpenAI Hosted Skills: `skill-zip`, `skill-upload-new`, `skill-upload-version`, `skill-list`.
+
+- **Expanded test suite** — `tests/test_pageindex_core.py` (unit tests for `pageindex_core.py`) and `tests/test_pageindex_core_integration.py` (integration tests). Existing `test_utils.py` and `test_page_index.py` also expanded.
+
+### Changed
+
+- **`pyproject.toml`** — Added `pageindex-eval = "pageindex.eval_repl:main"` script entry point. `uv.lock` regenerated.
+
 ## Beta - 2026-03-03
 
 ### Fixed

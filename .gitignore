@@ -11,5 +11,6 @@ notebook
 SDK/*
 log/*
 logs/
+.dist/
 parts/*
 json_results/*

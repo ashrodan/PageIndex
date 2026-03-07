@@ -189,6 +189,50 @@ python3 run_pageindex.py --md_path /path/to/your/document.md
 > Note: in this function, we use "#" to determine node heading and their levels. For example, "##" is level 2, "###" is level 3, etc. Make sure your markdown file is formatted correctly. If your Markdown file was converted from a PDF or HTML, we don't recommend using this function, since most existing conversion tools cannot preserve the original hierarchy. Instead, use our [PageIndex OCR](https://pageindex.ai/blog/ocr), which is designed to preserve the original hierarchy, to convert the PDF to a markdown file and then use this function.
 </details>
 
+### 4. Run the eval matrix locally
+
+The repo includes an eval harness that compares two answer modes on the same document QA cases:
+
+- `full_context`: inject the full document text into the prompt
+- `pageindex`: retrieve context from the PageIndex tree first, then answer from the retrieved nodes
+
+Install dependencies and set an API key:
+
+```bash
+uv sync --dev
+export OPENAI_API_KEY=your_openai_key_here
+```
+
+Run the smoke suite locally:
+
+```bash
+uv run python scripts/eval_matrix.py --suite smoke --output-dir .dist/evals/local-smoke
+```
+
+Run the full bundled suite:
+
+```bash
+uv run python scripts/eval_matrix.py --suite full --output-dir .dist/evals/local-full
+```
+
+Override models or the judge model if needed:
+
+```bash
+uv run python scripts/eval_matrix.py \
+  --suite smoke \
+  --models gpt-4o-mini,gpt-4.1-mini,gpt-4.1 \
+  --judge-model gpt-4.1 \
+  --output-dir .dist/evals/local-smoke
+```
+
+Outputs are written to the chosen directory:
+
+- `summary.md`: condensed matrix and head-to-head deltas
+- `cookbook_brief.md`: cookbook-ready guidance on when to use `full_context` versus PageIndex
+- `report.md`: full appendix with per-case results
+- `report.json`: machine-readable results
+- `samples/<model>/<case_id>/<mode>.json`: raw per-sample outputs
+
 <!-- 
 # ☁️ Improved Tree Generation with PageIndex OCR
 

@@ -1,0 +1,4 @@
+interface:
+  display_name: "PageIndex Search"
+  short_description: "Vectorless RAG search over provided documents"
+  default_prompt: "Use $pageindex-search to parse this PDF and answer my question with node citations."

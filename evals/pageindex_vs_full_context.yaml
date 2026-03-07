@@ -1,0 +1,164 @@
+version: 1
+cases:
+  - suite: smoke
+    case_id: disney-q1-revenue
+    doc_pdf: tests/pdfs/q1-fy25-earnings.pdf
+    doc_index_json: tests/results/q1-fy25-earnings_structure.json
+    question: What total revenue did Disney report for the first quarter of fiscal 2025?
+    reference_answer: "Disney reported first-quarter fiscal 2025 revenue of $24.7 billion, up 5% from the prior-year quarter."
+    required_facts:
+      - Disney reported $24.7 billion in revenue.
+      - The figure is for the first quarter of fiscal 2025, ended December 28, 2024.
+      - Revenue was up 5% from the prior-year quarter.
+    forbidden_claims:
+      - Revenue declined year over year.
+      - Revenue was below $24 billion.
+
+  - suite: smoke
+    case_id: disney-fy25-cash-from-operations
+    doc_pdf: tests/pdfs/q1-fy25-earnings.pdf
+    doc_index_json: tests/results/q1-fy25-earnings_structure.json
+    question: What cash provided by operations did Disney guide for fiscal year 2025?
+    reference_answer: "Disney guided to approximately $15 billion of cash provided by operations for fiscal year 2025."
+    required_facts:
+      - Guidance called for approximately $15 billion in cash provided by operations.
+      - The figure is part of fiscal year 2025 guidance.
+    forbidden_claims:
+      - Disney guided to $15 billion of free cash flow.
+      - Disney guided to less than $10 billion of cash from operations.
+
+  - suite: smoke
+    case_id: disney-sports-operating-income
+    doc_pdf: tests/pdfs/q1-fy25-earnings.pdf
+    doc_index_json: tests/results/q1-fy25-earnings_structure.json
+    question: What total Sports segment operating income or loss did Disney report for the first quarter of fiscal 2025?
+    reference_answer: "Disney reported $247 million of total Sports segment operating income in the first quarter of fiscal 2025, versus a $103 million loss in the prior-year quarter."
+    required_facts:
+      - Total Sports segment operating income was $247 million.
+      - The result was an operating income, not a loss.
+      - The prior-year quarter had a $103 million loss.
+    forbidden_claims:
+      - The Sports segment posted a loss in the first quarter of fiscal 2025.
+      - Sports operating income was only $9 million.
+
+  - suite: full
+    case_id: earthmover-main-contributions
+    doc_pdf: tests/pdfs/earthmover.pdf
+    doc_index_json: tests/results/earthmover_structure.json
+    question: According to the abstract and introduction, what three main ideas does the paper contribute to speed up EMD-based similarity search?
+    reference_answer: "The paper contributes three main ideas: it adapts the SIA min-cost flow algorithm for EMD computation, introduces progressive bounding to tighten a lower bound and terminate refinement early, and introduces dynamic refinement ordering with concurrent refinement of candidates."
+    required_facts:
+      - The paper adapts SIA for EMD computation.
+      - The paper proposes progressive bounding for early termination during refinement.
+      - The paper proposes dynamic refinement ordering with concurrent handling of candidates.
+    forbidden_claims:
+      - The paper's main contribution is an embedding model.
+      - The paper replaces EMD with Euclidean distance.
+
+  - suite: full
+    case_id: earthmover-speedup
+    doc_pdf: tests/pdfs/earthmover.pdf
+    doc_index_json: tests/results/earthmover_structure.json
+    question: What speedup does the paper report relative to the state-of-the-art solution?
+    reference_answer: "The paper reports reducing the cost of EMD-based similarity queries by one to two orders of magnitude, and in the conclusion says up to two orders of magnitude compared with the state-of-the-art solution."
+    required_facts:
+      - The paper reports one to two orders of magnitude improvement, or up to two orders of magnitude.
+      - The comparison is against the state-of-the-art solution.
+    forbidden_claims:
+      - The improvement is only marginal.
+      - The paper is slower than the state of the art.
+
+  - suite: full
+    case_id: earthmover-scale-claim
+    doc_pdf: tests/pdfs/earthmover.pdf
+    doc_index_json: tests/results/earthmover_structure.json
+    question: What dataset-scale claim does the paper make in the introduction?
+    reference_answer: "The paper claims to be the first study on this subject to consider datasets with million-scale object cardinality and thousand-scale histogram dimensionality."
+    required_facts:
+      - The claim mentions million-scale object cardinality.
+      - The claim mentions thousand-scale histogram dimensionality.
+      - The paper frames this as a first study on the subject.
+    forbidden_claims:
+      - The paper only studies tiny datasets.
+      - The paper only evaluates low-dimensional histograms.
+
+  - suite: full
+    case_id: regbi-exclusion-conditions
+    doc_pdf: tests/pdfs/Regulation Best Interest_Interpretive release.pdf
+    doc_index_json: tests/results/Regulation Best Interest_Interpretive release_structure.json
+    question: Under the broker-dealer exclusion discussed in the SEC release, what two conditions must be satisfied?
+    reference_answer: "The broker-dealer exclusion applies only when advisory services are solely incidental to the conduct of the broker-dealer's business and the broker-dealer receives no special compensation for those services."
+    required_facts:
+      - Advisory services must be solely incidental to the broker-dealer business.
+      - The broker-dealer must receive no special compensation for those services.
+    forbidden_claims:
+      - Special compensation is allowed under the exclusion.
+      - Solely incidental advice is enough even without the compensation condition.
+
+  - suite: full
+    case_id: regbi-solely-incidental-definition
+    doc_pdf: tests/pdfs/Regulation Best Interest_Interpretive release.pdf
+    doc_index_json: tests/results/Regulation Best Interest_Interpretive release_structure.json
+    question: How does the release describe when advisory services are solely incidental to brokerage services?
+    reference_answer: "The release says advisory services are solely incidental when they are offered in connection with and are reasonably related to the brokerage services provided to an account."
+    required_facts:
+      - The advice must be offered in connection with brokerage services.
+      - The advice must be reasonably related to the brokerage services provided to the account.
+    forbidden_claims:
+      - Advice qualifies only if it is minor or infrequent.
+      - Advice qualifies even when unrelated to brokerage services.
+
+  - suite: full
+    case_id: regbi-no-new-obligations
+    doc_pdf: tests/pdfs/Regulation Best Interest_Interpretive release.pdf
+    doc_index_json: tests/results/Regulation Best Interest_Interpretive release_structure.json
+    question: Does the SEC say this interpretation itself creates new legal obligations for broker-dealers?
+    reference_answer: "No. The SEC says the interpretation does not itself create new legal obligations, although it may have economic effects if broker-dealer practices are inconsistent with the interpretation."
+    required_facts:
+      - The interpretation does not itself create new legal obligations.
+      - The release says there may still be economic effects if practices are inconsistent with the interpretation.
+    forbidden_claims:
+      - The interpretation itself imposes new legal obligations.
+      - The release says there are no possible economic effects.
+
+  - suite: full
+    case_id: fed-march-2024-rate-range
+    doc_pdf: tests/pdfs/2023-annual-report-truncated.pdf
+    doc_index_json: tests/results/2023-annual-report-truncated_structure.json
+    question: What target range for the federal funds rate did the FOMC maintain in the March 2024 summary?
+    reference_answer: "In the March 2024 summary, the FOMC maintained the target range for the federal funds rate at 5 1/4 to 5 1/2 percent, where it had been since the July 2023 meeting."
+    required_facts:
+      - The target range was 5 1/4 to 5 1/2 percent.
+      - The March 2024 summary says the range had been maintained since the July 2023 meeting.
+    forbidden_claims:
+      - The target range was cut below 5 percent.
+      - The FOMC raised the range again in the March 2024 summary.
+
+  - suite: full
+    case_id: fed-pce-inflation-january-2024
+    doc_pdf: tests/pdfs/2023-annual-report-truncated.pdf
+    doc_index_json: tests/results/2023-annual-report-truncated_structure.json
+    question: According to the report, what were total PCE inflation and core PCE inflation over the 12 months ending in January 2024?
+    reference_answer: "Total PCE inflation was 2.4% over the 12 months ending in January 2024, and core PCE inflation was 2.8%."
+    required_facts:
+      - Total PCE inflation was 2.4%.
+      - Core PCE inflation was 2.8%.
+      - The time period is the 12 months ending in January 2024.
+    forbidden_claims:
+      - Total PCE inflation was above 4%.
+      - Core PCE inflation was below 2%.
+
+  - suite: full
+    case_id: fed-four-financial-stability-vulnerabilities
+    doc_pdf: tests/pdfs/2023-annual-report-truncated.pdf
+    doc_index_json: tests/results/2023-annual-report-truncated_structure.json
+    question: What four vulnerabilities does the Federal Reserve say it monitors for financial stability?
+    reference_answer: "The Federal Reserve says it monitors four key vulnerabilities: asset valuations, borrowing by businesses and households, leverage in the financial sector, and funding risk."
+    required_facts:
+      - Asset valuations are one of the four vulnerabilities.
+      - Borrowing by businesses and households is one of the four vulnerabilities.
+      - Leverage in the financial sector is one of the four vulnerabilities.
+      - Funding risk is one of the four vulnerabilities.
+    forbidden_claims:
+      - Cybersecurity is listed as one of the four vulnerabilities.
+      - Inflation itself is listed as one of the four vulnerabilities.

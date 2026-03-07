@@ -1,0 +1,96 @@
+name: Eval Matrix
+
+on:
+  pull_request:
+    paths:
+      - "scripts/eval_matrix.py"
+      - "tests/test_eval_matrix.py"
+      - "evals/pageindex_vs_full_context.yaml"
+      - ".github/workflows/eval-matrix.yml"
+      - "tests/pdfs/**"
+      - "tests/results/**"
+      - "pageindex/**"
+      - "pageindex_core.py"
+      - "pyproject.toml"
+      - "uv.lock"
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: "Eval suite to run"
+        required: true
+        default: "full"
+        type: choice
+        options:
+          - smoke
+          - full
+      models:
+        description: "Comma-separated model list"
+        required: false
+        default: "gpt-4o-mini,gpt-4.1-mini,gpt-4.1"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  eval-matrix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Sync dependencies
+        run: uv sync --dev
+
+      - name: Run eval matrix
+        id: eval
+        env:
+          SUITE: ${{ github.event_name == 'workflow_dispatch' && inputs.suite || 'smoke' }}
+          MODELS: ${{ github.event_name == 'workflow_dispatch' && inputs.models || 'gpt-4o-mini,gpt-4.1-mini,gpt-4.1' }}
+        run: |
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "OPENAI_API_KEY secret is required" >&2
+            exit 1
+          fi
+
+          OUTPUT_DIR=".dist/evals/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          echo "output_dir=$OUTPUT_DIR" >> "$GITHUB_OUTPUT"
+
+          uv run python scripts/eval_matrix.py \
+            --suite "$SUITE" \
+            --models "$MODELS" \
+            --judge-model "gpt-4.1" \
+            --output-dir "$OUTPUT_DIR"
+
+      - name: Publish job summary
+        if: always()
+        run: |
+          OUTPUT_DIR="${{ steps.eval.outputs.output_dir }}"
+          if [ -f "$OUTPUT_DIR/summary.md" ]; then
+            cat "$OUTPUT_DIR/summary.md" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ -f "$OUTPUT_DIR/cookbook_brief.md" ]; then
+            {
+              echo
+              echo "Cookbook-ready brief: \`cookbook_brief.md\` in the uploaded artifact."
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload eval artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-matrix-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ steps.eval.outputs.output_dir }}
+          if-no-files-found: error

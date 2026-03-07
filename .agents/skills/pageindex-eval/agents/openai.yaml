@@ -1,0 +1,4 @@
+interface:
+  display_name: "PageIndex Eval"
+  short_description: "Run PageIndex eval REPL and benchmark workflows"
+  default_prompt: "Use $pageindex-eval to run retrieval evals on this index and summarize precision/recall findings."
